@@ -19,6 +19,8 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -26,6 +28,12 @@ import java.util.concurrent.Executors;
 
 public class HTTPServer {
 	private static final String argsUsage = "usage: MyPort\n";
+
+	private final static Map<String, String> REDIRECT302 = new HashMap<String, String>() {
+		{
+			put("/root/alex.html", "/root/alexTemp.html");
+		}
+	};
 
 	public static void main(String[] args) {
 		int myPort;
@@ -35,7 +43,6 @@ public class HTTPServer {
 			System.exit(1);
 			return;
 		}
-
 
 		// check the port number
 		try {
@@ -54,7 +61,6 @@ public class HTTPServer {
 			return;
 		}
 
-
 		// create the server socket
 		ServerSocket serverSocket;
 		try {
@@ -65,7 +71,7 @@ public class HTTPServer {
 			return;
 		}
 
-		//accept a incoming connection and run the async echo reply
+		// accept a incoming connection and run the async echo reply
 		ExecutorService ex = Executors.newCachedThreadPool();
 		try {
 			while (true) {
@@ -86,111 +92,136 @@ public class HTTPServer {
 	}
 
 	private static void doTheEcho(Socket socket) {
+		BufferedReader in = null;
+		PrintWriter out = null;
+		BufferedOutputStream dataOut = null;
+		String fileRequested = null;
 		try {
-
-			BufferedReader in = null;
-			PrintWriter out = null;
-			BufferedOutputStream dataOut = null;
-			String fileRequested = null;
-
-
 			// we read characters from the client via input stream on the socket
 			in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			// we get character output stream to client (for headers)
 			out = new PrintWriter(socket.getOutputStream());
 			// get binary output stream to client (for requested data)
 			dataOut = new BufferedOutputStream(socket.getOutputStream());
-
-			
+		} catch (IOException e) {
+			// System.err.println("Error with sending the Echo, maybe the Client is dead");
+			// no HTTP answer
+			System.err.println(e);
+		}
+		try {
 			String line = in.readLine();
 			String[] words = line.split("\\s");
 			switch (words[0]) {
-				case "GET":
-					String requestedGetFile = words[1];
-					
-					//FileInputStream file = new FileInputStream(requestedGetFile);
+			case "GET":
+				String requestedGetFile = words[1];
 
-					
+				// FileInputStream file = new FileInputStream(requestedGetFile);
 
-					
-
-			
-					if (requestedGetFile.endsWith(".html")){
+				if (REDIRECT302.containsKey(requestedGetFile)) {
+					out.println("HTTP/1.1 302 Found");
+					out.println("Location: " + REDIRECT302.get(requestedGetFile));
+					out.flush();
+				} else if (requestedGetFile.endsWith(".html")) {
+					out.println("HTTP/1.1 200 OK");
+					out.println("Content-Type: text/html;charset=UTF-8");
+					out.println();
+					out.flush();
+					Files.copy(Paths.get(requestedGetFile.substring(1)), socket.getOutputStream());
+				} else if (requestedGetFile.endsWith(".png")) {
+					out.println("HTTP/1.1 200 OK");
+					out.println("Content-Type: image/png");
+					out.println();
+					out.flush();
+					Files.copy(Paths.get(requestedGetFile.substring(1)), socket.getOutputStream());
+				} else {
+					if (requestedGetFile.endsWith("/")) {
+						requestedGetFile += "index.html";
+					} else {
+						requestedGetFile += "/index.html";
+					}
+					File f = Paths.get(requestedGetFile.substring(1)).toFile();
+					if (!f.exists()) {
+						requestedGetFile = requestedGetFile.substring(0, requestedGetFile.length() - 1);
+						f = Paths.get(requestedGetFile.substring(1)).toFile();
+					}
+					if (f.exists()) {
 						out.println("HTTP/1.1 200 OK");
 						out.println("Content-Type: text/html;charset=UTF-8");
 						out.println();
 						out.flush();
 						Files.copy(Paths.get(requestedGetFile.substring(1)), socket.getOutputStream());
-					}else if (requestedGetFile.endsWith(".png")){
-						out.println("HTTP/1.1 200 OK");
-						out.println("Content-Type: image/png");
+					} else {
+						System.err.println(requestedGetFile);
+						out.println("HTTP/1.1 404 OK");
+						out.println("Content-Type: text/html;charset=UTF-8");
 						out.println();
 						out.flush();
-						Files.copy(Paths.get(requestedGetFile.substring(1)), socket.getOutputStream());
+						Files.copy(Paths.get("root\404.html"), socket.getOutputStream()); //intendent mistake
 					}
-					socket.getOutputStream().flush();
-					//out.print(Files.isReadable(Paths.get(requestedGetFile)));
-					break;
 
-				case "POST":
+				}
+				socket.getOutputStream().flush();
+				// out.print(Files.isReadable(Paths.get(requestedGetFile)));
+				break;
 
-					break;
+			case "POST":
 
-				case "PUT":
+				break;
 
-					break;
-			
-				default:
-					break;
+			case "PUT":
+
+				break;
+
+			default:
+				break;
 			}
-			
 
-			//RequestHeader reqHead = extractRequestHeader(rec);
+			// RequestHeader reqHead = extractRequestHeader(rec);
 
-			String header 	= "HTTP/1.1 200 OK\n"
-							+ "Date: Wed, 13 Feb 2019 14:44:00 GMT\n"
-							+"Server: Apache-Coyote/1.1\n"
-							+"Content-Type: text/html;charset=UTF-8\n"
-							+"Content-Language: sv-SE\n"
-							+"Connection: close\n"
-							+"Set-Cookie: f5_cspm=1234;\n"
-							//+"Transfer-Encoding: chunked\n"
-							+"\r\n"
-							+"Hallo Welt";
-			//socket.getOutputStream().write(header.getBytes());
-			//socket.getOutputStream().flush();
-			//System.out.println(header);
+			String header = "HTTP/1.1 200 OK\n" + "Date: Wed, 13 Feb 2019 14:44:00 GMT\n"
+					+ "Server: Apache-Coyote/1.1\n" + "Content-Type: text/html;charset=UTF-8\n"
+					+ "Content-Language: sv-SE\n" + "Connection: close\n" + "Set-Cookie: f5_cspm=1234;\n"
+					// +"Transfer-Encoding: chunked\n"
+					+ "\r\n" + "Hallo Welt";
+			// socket.getOutputStream().write(header.getBytes());
+			// socket.getOutputStream().flush();
+			// System.out.println(header);
 		} catch (IOException e) {
-			//System.err.println("Error with sending the Echo, maybe the Client is dead");
+			try {
+				out.println("HTTP/1.1 500 ServerError");
+				out.println("Content-Type: text/html;charset=UTF-8");
+				out.println();
+				out.flush();
+				Files.copy(Paths.get("root\\500.html"), socket.getOutputStream());
+			} catch (Exception e2) {
+				System.err.println(e2);
+			}
+
+			// System.err.println("Error with sending the Echo, maybe the Client is dead");
 			System.err.println(e);
 		}
 
 		try {
 			socket.close();
 		} catch (Exception e) {
-			//TODO: handle exception
+			// TODO: handle exception
 		}
-		
 
 	}
 
-/* 	public static File getPath(String requestedGetFile){
-		String[] directories = requestedGetFile.split("/");
-		try {
-			File file = new File(Paths.get("", directories));
-			if (file.isFile()){
-				return file;
-			}
-			file = new File(Paths.get("",  "index.html"));
-			if (file.isFile()) {
-				return file;
-			}
-		} catch (NoSuchFileException e) {}
+	/*
+	 * public static File getPath(String requestedGetFile){ String[] directories =
+	 * requestedGetFile.split("/"); try { File file = new File(Paths.get("",
+	 * directories)); if (file.isFile()){ return file; } file = new
+	 * File(Paths.get("", "index.html")); if (file.isFile()) { return file; } }
+	 * catch (NoSuchFileException e) {}
+	 * 
+	 * 
+	 * }
+	 */
 
-		
-	} */
-
-	/*public static ResponseHeader extractRequestHeader(String message){
-		return new RequestHeader(message);
-	}*/
+	/*
+	 * public static ResponseHeader extractRequestHeader(String message){ return new
+	 * RequestHeader(message); }
+	 */
 }
