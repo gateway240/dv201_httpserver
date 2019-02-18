@@ -1,7 +1,5 @@
 package dv201.httpserver;
 
-import java.net.ServerSocket;
-
 public class HTTPServerLib {
 
     public static Integer ParsePort(String port){
@@ -18,6 +16,11 @@ public class HTTPServerLib {
             System.err.println("Problem occurred while processing your serverport input: "+ port);
             return 0;
         }
+    }
+    public static String GenerateOKHeader(){
+        String OKHeader = "HTTP/1.1 200 OK\n" +
+                "Content-Type: text/html;charset=UTF-8\n\n";
+        return OKHeader;
     }
 
 

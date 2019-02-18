@@ -8,69 +8,44 @@ import java.nio.file.Paths;
 
 public class InboundRequest implements Runnable {
     Socket socket;
+    BufferedReader in;
+    PrintWriter out;
 
-    InboundRequest(Socket socket) {this.socket =socket;}
 
-    public void AcceptIncomingConnection() {
+    InboundRequest(Socket socket) {
+
+        this.socket =socket;
         try {
-
-            BufferedReader in = null;
-
-            BufferedOutputStream dataOut = null;
-            String fileRequested = null;
-
-
             // we read characters from the client via input stream on the socket
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             // we get character output stream to client (for headers)
+            out = new PrintWriter(socket.getOutputStream());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-            // get binary output stream to client (for requested data)
-            dataOut = new BufferedOutputStream(socket.getOutputStream());
-
-
+    public void AcceptIncomingConnection() {
+        try {
             String line = in.readLine();
             ParseHeader(line);
 
-
-
-            //RequestHeader reqHead = extractRequestHeader(rec);
-
-            String header 	= "HTTP/1.1 200 OK\n"
-                    + "Date: Wed, 13 Feb 2019 14:44:00 GMT\n"
-                    +"Server: Apache-Coyote/1.1\n"
-                    +"Content-Type: text/html;charset=UTF-8\n"
-                    +"Content-Language: sv-SE\n"
-                    +"Connection: close\n"
-                    +"Set-Cookie: f5_cspm=1234;\n"
-                    //+"Transfer-Encoding: chunked\n"
-                    +"\r\n"
-                    +"Hallo Welt";
-            //socket.getOutputStream().write(header.getBytes());
-            //socket.getOutputStream().flush();
-            //System.out.println(header);
         } catch (IOException e) {
             //System.err.println("Error with sending the Echo, maybe the Client is dead");
             System.err.println(e);
         }
-
-        try {
-            socket.close();
-        } catch (Exception e) {
-            //TODO: handle exception
+        finally {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
 
     }
     public void SendOKResponse() {
-        PrintWriter out = null;
-        try {
-            out = new PrintWriter(socket.getOutputStream());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        out.println("HTTP/1.1 200 OK");
-        out.println("Content-Type: text/html;charset=UTF-8");
-        out.println();
+        out.println(HTTPServerLib.GenerateOKHeader());
         out.flush();
     }
     public void ParseHeader(String inboundHeader){
@@ -95,21 +70,15 @@ public class InboundRequest implements Runnable {
     }
     private void HandleGet(String Resource){
 
-
         if (Resource.endsWith(".html") || Resource.endsWith(".png")) {
-
             try {
+                SendOKResponse();
                 Files.copy(Paths.get(Resource.substring(1)), socket.getOutputStream());
+                out.flush();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        try {
-            socket.getOutputStream().flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //out.print(Files.isReadable(Paths.get(requestedGetFile)));
     }
     private void HandlePut(){
 

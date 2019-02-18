@@ -2,9 +2,6 @@ package dv201.httpserver;
 
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 
 
@@ -12,6 +9,7 @@ public class HTTPServer {
 
     private static final String ARGS_USAGE = "usage: MyPort\n";
     public static void main(String[] args){
+
         int myPort;
 
         if (args.length != 1) {
@@ -35,10 +33,10 @@ public class HTTPServer {
             FatalError("Exception while creating the socket");
             return;
         }
-
+        System.out.println("Server started on port: " + myPort);
         //accept a incoming connection and run the async echo reply
         int requestCount = 0;
-        ExecutorService ex = Executors.newCachedThreadPool();
+//        ExecutorService ex = Executors.newCachedThreadPool();
         try {
             while (true) {
                 Socket socket = serverSocket.accept();
