@@ -42,7 +42,6 @@ public class HTTPServer {
                 Socket socket = serverSocket.accept();
                 System.out.println("Accepting New Request: " + requestCount++);
                 new Thread(new InboundRequest(socket)).start();
-//                CompletableFuture.runAsync(() -> AcceptIncomingConnection(socket), ex);
             }
         } catch (Exception e) {
             System.err.println("Exception while waiting for connections" + e.toString());
