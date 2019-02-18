@@ -44,10 +44,10 @@ public class InboundRequest implements Runnable {
 
 
     }
-    public void SendOKResponse() {
-        out.println(HTTPServerLib.GenerateOKHeader());
-        out.flush();
-    }
+//    public void SendOKResponse() {
+//        out.println(HTTPServerLib.GenerateOKHeader());
+//        out.flush();
+//    }
     public void ParseHeader(String inboundHeader){
         String[] words = inboundHeader.split("\\s");
         switch (words[0]) {
@@ -72,9 +72,16 @@ public class InboundRequest implements Runnable {
 
         if (Resource.endsWith(".html") || Resource.endsWith(".png")) {
             try {
-                SendOKResponse();
                 Files.copy(Paths.get(Resource.substring(1)), socket.getOutputStream());
-                out.flush();
+                ContentType contentType = null;
+                if(Resource.endsWith(".html")){
+                    contentType = ContentType.HTML;
+                }
+                else{
+                    contentType = ContentType.PNG;
+                }
+                ReplyHeader replyHeader = new ReplyHeader(Status.STATUS200,contentType);
+                replyHeader.SendHeader(out);
             } catch (IOException e) {
                 e.printStackTrace();
             }

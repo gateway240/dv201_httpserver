@@ -25,32 +25,17 @@ public class HTTPServer {
             return;
         }
 
-        // create the server socket
-        ServerSocket serverSocket;
-        try {
-            serverSocket = new ServerSocket(myPort);
-        } catch (Exception e) {
-            FatalError("Exception while creating the socket");
-            return;
-        }
-        System.out.println("Server started on port: " + myPort);
-        //accept a incoming connection and run the async echo reply
-        int requestCount = 0;
-//        ExecutorService ex = Executors.newCachedThreadPool();
-        try {
+        try (ServerSocket serverSocket = new ServerSocket(myPort)) {
+            int requestCount = 0;
             while (true) {
                 Socket socket = serverSocket.accept();
                 System.out.println("Accepting New Request: " + requestCount++);
                 new Thread(new InboundRequest(socket)).start();
             }
         } catch (Exception e) {
-            System.err.println("Exception while waiting for connections" + e.toString());
-            try {
-                serverSocket.close();
-            } catch (Exception f) {
-                System.err.println("Execption closing socket" + e.toString());
-            }
+            FatalError("Error creating or accepting server socket." + e.getMessage());
         }
+
 
     }
     private static void FatalError(String errorMsg){
