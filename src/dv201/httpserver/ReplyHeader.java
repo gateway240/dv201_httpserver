@@ -42,14 +42,22 @@ public class ReplyHeader {
 //    private static final String CONTENT_TYPE_PNG = "Content-Type: image/png";
     Status status;
     ContentType contentType;
+    String Location = null;
 
     public ReplyHeader(Status status, ContentType contentType) {
         this.status = status;
         this.contentType = contentType;
     }
     public void SendHeader(PrintWriter out){
+        if (status == Status.STATUS302 && Location == null){
+            throw Exception("No location setted for 302 reply");
+        }
         out.println(getStatus().toString());
-        out.println(getContentType().toString());
+        if (status == Status.STATUS302) {
+            out.println("Location: " + Location);
+        }else{
+            out.println(getContentType().toString());
+        }        
         out.println();
         out.flush();
 
