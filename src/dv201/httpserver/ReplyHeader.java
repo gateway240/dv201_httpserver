@@ -1,35 +1,10 @@
 package dv201.httpserver;
 
 
+import dv201.httpserver.enums.ContentType;
+import dv201.httpserver.enums.Status;
+
 import java.io.PrintWriter;
-
-enum ContentType{ HTML("Content-Type: text/html;charset=UTF-8"),
-    PNG ("Content-Type: image/png");
-
-    private final String text;
-    ContentType(final String text){
-        this.text = text;
-    }
-    @Override
-    public String toString(){
-        return text;
-    }
-}
-enum Status{ STATUS200("HTTP/1.1 200 OK"),
-    STATUS302("HTTP/1.1 302 FOUND"),
-    STATUS403("HTTP/1.1 403 FORBIDDEN"),
-    STATUS404("HTTP/1.1 404 NOT FOUND"),
-    STATUS500("HTTP/1.1 500 INTERNAL SERVER ERROR");
-
-private final String text;
-Status(final String text){
-    this.text = text;
-}
-@Override
-    public String toString(){
-    return text;
-}
-}
 
 public class ReplyHeader {
 

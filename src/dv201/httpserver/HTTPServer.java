@@ -24,7 +24,7 @@ public class HTTPServer {
             FatalError(ARGS_USAGE);
             return;
         }
-
+        System.out.println("Starting HTTP Server on Port: "+ myPort);
         try (ServerSocket serverSocket = new ServerSocket(myPort)) {
             int requestCount = 0;
             while (true) {

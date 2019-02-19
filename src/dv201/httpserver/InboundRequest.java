@@ -1,11 +1,15 @@
 package dv201.httpserver;
 
+import dv201.httpserver.enums.ContentType;
+import dv201.httpserver.enums.Status;
+
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 public class InboundRequest implements Runnable {
     Socket socket;
@@ -37,9 +41,10 @@ public class InboundRequest implements Runnable {
 
     public void AcceptIncomingConnection() {
         try {
-            String line = in.readLine();
-            ParseHeader(line);
-
+//            String line =  in.lines().collect(Collectors.joining());
+//            String line = in.readLine();
+            InboundRequestHeader requestHeader = new InboundRequestHeader(in);
+            HandleHeader(requestHeader);
         } catch (Exception e) {
             send500();
             // System.err.println("Error with sending the Echo, maybe the Client is dead");
@@ -67,19 +72,18 @@ public class InboundRequest implements Runnable {
         } // maybe bad
     }
 
-    public void ParseHeader(String inboundHeader) {
-        String[] words = inboundHeader.split("\\s");
-        switch (words[0]) {
-        case "GET":
-            String requestedGetFile = words[1].substring(1);
-            HandleGet(requestedGetFile);
+    public void HandleHeader(InboundRequestHeader requestHeader) {
+        switch (requestHeader.getRequestType()) {
+            case GET:
+                System.out.println(requestHeader.getRequestedResource());
+            HandleGet(requestHeader.getRequestedResource());
             break;
 
-        case "POST":
+            case POST:
 
             break;
 
-        case "PUT":
+            case PUT:
 
             break;
 
