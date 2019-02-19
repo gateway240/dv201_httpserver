@@ -7,9 +7,12 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.HashMap;
-import java.util.stream.Collectors;
+import java.util.Map;
+
+import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
+import static dv201.httpserver.HTTPServerLib.FILE_NAME;
+
 
 public class InboundRequest implements Runnable {
     Socket socket;
@@ -19,6 +22,8 @@ public class InboundRequest implements Runnable {
     private final String file404File = "root/404.html";
     private final String file403File = "root/403.html";
     private final String file500File = "root/500.html";
+    private final String uploadDir = "root/upload/";
+
 
     private final static Map<String, String> REDIRECT302 = new HashMap<String, String>() {
         {
@@ -41,8 +46,6 @@ public class InboundRequest implements Runnable {
 
     public void AcceptIncomingConnection() {
         try {
-//            String line =  in.lines().collect(Collectors.joining());
-//            String line = in.readLine();
             InboundRequestHeader requestHeader = new InboundRequestHeader(in);
             HandleHeader(requestHeader);
         } catch (Exception e) {
@@ -62,7 +65,7 @@ public class InboundRequest implements Runnable {
     private void send500() {
         Status status = Status.STATUS500;
         ContentType contentType = ContentType.HTML;
-        File fileToSend = new File(file500File);
+        File fileToSend = Paths.get(file500File).toFile();
         new ReplyHeader(status, contentType).SendHeader(out);
         try {
             Files.copy(fileToSend.toPath(), socket.getOutputStream());
@@ -75,20 +78,19 @@ public class InboundRequest implements Runnable {
     public void HandleHeader(InboundRequestHeader requestHeader) {
         switch (requestHeader.getRequestType()) {
             case GET:
-                System.out.println(requestHeader.getRequestedResource());
-            HandleGet(requestHeader.getRequestedResource());
-            break;
+                HandleGet(requestHeader.getRequestedResource());
+                break;
 
             case POST:
-
-            break;
+                HandlePost(requestHeader.getPayload());
+                break;
 
             case PUT:
+                HandlePut(requestHeader.getPayload());
+                break;
 
-            break;
-
-        default:
-            break;
+            default:
+                break;
         }
     }
 
@@ -124,9 +126,9 @@ public class InboundRequest implements Runnable {
             contentType = ContentType.HTML;
         }
 
-        if (status == Status.STATUS302){
+        if (status == Status.STATUS302) {
             new ReplyHeader(status, contentType, location).SendHeader(out);
-        }else{
+        } else {
 
             if (!(fileToSend != null && fileToSend.isFile() && Files.isReadable(fileToSend.toPath()))) {
                 System.err.println("File not found: " + fileToSend.getPath());
@@ -143,19 +145,76 @@ public class InboundRequest implements Runnable {
             try {
                 Files.copy(fileToSend.toPath(), socket.getOutputStream());
                 socket.getOutputStream().flush();
-            } catch (IOException e) {			
+            } catch (IOException e) {
                 e.printStackTrace();
-            } // maybe bad
+            } finally {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
-    private void HandlePut() {
+    private void HandlePost(Map<String, String> postParams) {
+//        System.out.println(postParams.get("myImage"));
+        Status status = Status.STATUS200;
+        ContentType contentType = ContentType.PNG;
+
+
+        new ReplyHeader(status, contentType).SendHeader(out);
+
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void HandlePut(Map<String, String> postParams) {
+        String fileContents = postParams.get(FILE_CONTENTS);
+        String fileName = (postParams.get(FILE_NAME));
+
+        ContentType contentType = ContentType.URLENCODED;
+        Status status;
+        if(fileContents != null && fileName != null){
+            File f = new File(uploadDir + fileName + ".txt");
+            if(f.exists() && !f.isDirectory()){
+                status = Status.STATUS204;
+                new ReplyHeader(status, contentType).SendHeader(out);
+            }
+            else{
+                status = Status.STATUS201;
+                new ReplyHeader(status, contentType).SendHeader(out);
+            }
+            FileWriter fileWriter = null;
+            try {
+                fileWriter = new FileWriter(f);
+                fileWriter.write(fileContents);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            finally{
+                try {
+                    fileWriter.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        else{
+            status = Status.STATUS200;
+            new ReplyHeader(status, contentType).SendHeader(out);
+        }
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
     }
 
-    private void HandlePost() {
-
-    }
 
     @Override
     public void run() {

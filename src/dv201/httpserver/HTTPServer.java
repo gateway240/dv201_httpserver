@@ -3,11 +3,13 @@ package dv201.httpserver;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import static dv201.httpserver.HTTPServerLib.ARGS_USAGE;
+import static dv201.httpserver.HTTPServerLib.FatalError;
 
 
 public class HTTPServer {
 
-    private static final String ARGS_USAGE = "usage: MyPort\n";
+
     public static void main(String[] args){
 
         int myPort;
@@ -38,9 +40,6 @@ public class HTTPServer {
 
 
     }
-    private static void FatalError(String errorMsg){
-        System.err.println(errorMsg);
-        System.exit(1);
-    }
+
 
 }

@@ -1,6 +1,10 @@
 package dv201.httpserver;
 
 public class HTTPServerLib {
+    public static final String ARGS_USAGE = "usage: MyPort\n";
+
+    public static final String FILE_CONTENTS = "fileContents";
+    public static final String FILE_NAME = "name";
 
     public static Integer ParsePort(String port){
         try {
@@ -17,10 +21,9 @@ public class HTTPServerLib {
             return 0;
         }
     }
-    public static String GenerateOKHeader(){
-        String OKHeader = "HTTP/1.1 200 OK\n" +
-                "Content-Type: text/html;charset=UTF-8\n\n";
-        return OKHeader;
+    public static void FatalError(String errorMsg){
+        System.err.println(errorMsg);
+        System.exit(1);
     }
 
 
