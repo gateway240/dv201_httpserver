@@ -33,13 +33,11 @@ class InboundRequest implements Runnable {
         }
     };
 
-    InboundRequest(Socket socket) {
+    public InboundRequest(Socket socket) {
 
         this.socket = socket;
         try {
-            // we read characters from the client via input stream on the socket
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            // we get character output stream to client (for headers)
             out = new PrintWriter(socket.getOutputStream());
         } catch (IOException e) {
             e.printStackTrace();
@@ -148,12 +146,6 @@ class InboundRequest implements Runnable {
                 socket.getOutputStream().flush();
             } catch (IOException e) {
                 e.printStackTrace();
-            } finally {
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
     }
@@ -179,11 +171,12 @@ class InboundRequest implements Runnable {
         Status status;
         if(fileContents != null && fileName != null){
             File f = new File(UPLOAD_DIR + fileName + ".txt");
-            if(f.exists() && !f.isDirectory()){
+            if(f.exists() && !f.isDirectory()){ //?? why is it no content, if it exists and is not a directory, becaue than it is a file 
                 status = Status.STATUS204;
                 new ReplyHeader(status, contentType).SendHeader(out);
             }
             else{
+                // I would try to send that OK message *after* you actual wrote the file without an error
                 status = Status.STATUS201;
                 new ReplyHeader(status, contentType).SendHeader(out);
             }
@@ -203,15 +196,10 @@ class InboundRequest implements Runnable {
             }
         }
         else{
+            //?? why do you say 200 OK and not 204 NO CONTENT
             status = Status.STATUS200;
             new ReplyHeader(status, contentType).SendHeader(out);
         }
-        try {
-            socket.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
     }
 
 
