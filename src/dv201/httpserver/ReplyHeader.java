@@ -6,18 +6,11 @@ import dv201.httpserver.enums.Status;
 
 import java.io.PrintWriter;
 
-public class ReplyHeader {
+class ReplyHeader {
 
-//    public static final String STATUS200 = "HTTP/1.1 200 OK";
-//    private static final String STATUS404 = "HTTP/1.1 404 NOT FOUND";
-//    private static final String STATUS500 = "HTTP/1.1 500 INTERNAL SERVER ERROR";
-//    private static final String STATUS302 = "HTTP/1.1 302 FOUND";
-//    private static final String STATUS403 = "HTTP/1.1 403 FORBIDDEN";
-//    private static final String CONTENT_TYPE_HTML = "Content-Type: text/html;charset=UTF-8";
-//    private static final String CONTENT_TYPE_PNG = "Content-Type: image/png";
-    Status status;
-    ContentType contentType;
-    String location = null;
+    private final Status status;
+    private final ContentType contentType;
+    private String location = null;
 
     public ReplyHeader(Status status, ContentType contentType) {
         this.status = status;
@@ -32,7 +25,7 @@ public class ReplyHeader {
 
     public void SendHeader(PrintWriter out){
         if (status == Status.STATUS302 && location == null){
-            throw new RuntimeException("No location setted for 302 reply");
+            throw new RuntimeException("No location set for 302 reply");
         }
         out.println(getStatus().toString());
         if (status == Status.STATUS302) {
@@ -44,19 +37,12 @@ public class ReplyHeader {
         out.flush();
 
     }
-    public Status getStatus() {
+    private Status getStatus() {
         return status;
     }
 
-    public void setStatus(Status status) {
-        this.status = status;
-    }
-
-    public ContentType getContentType() {
+    private ContentType getContentType() {
         return contentType;
     }
 
-    public void setContentType(ContentType contentType) {
-        this.contentType = contentType;
-    }
 }

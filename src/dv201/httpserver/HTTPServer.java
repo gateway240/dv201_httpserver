@@ -7,7 +7,7 @@ import static dv201.httpserver.HTTPServerLib.ARGS_USAGE;
 import static dv201.httpserver.HTTPServerLib.FatalError;
 
 
-public class HTTPServer {
+class HTTPServer {
 
 
     public static void main(String[] args){

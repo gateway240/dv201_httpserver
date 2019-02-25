@@ -1,6 +1,6 @@
 package dv201.httpserver;
 
-public class HTTPServerLib {
+class HTTPServerLib {
     public static final String ARGS_USAGE = "usage: MyPort\n";
 
     public static final String FILE_CONTENTS = "fileContents";
@@ -10,7 +10,7 @@ public class HTTPServerLib {
         try {
             Integer myPort = Integer.valueOf(port);
             if(myPort <= 0 || myPort > 65535){
-                System.err.printf("your Port is not between 0 and 65535\n");
+                System.err.println("your Port is not between 0 and 65535");
                 return 0;
             }
            else{

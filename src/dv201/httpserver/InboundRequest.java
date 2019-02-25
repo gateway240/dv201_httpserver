@@ -14,20 +14,22 @@ import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
 import static dv201.httpserver.HTTPServerLib.FILE_NAME;
 
 
-public class InboundRequest implements Runnable {
-    Socket socket;
-    BufferedReader in;
-    PrintWriter out;
+class InboundRequest implements Runnable {
+    private final Socket socket;
+    private BufferedReader in;
+    private PrintWriter out;
 
-    private final String file404File = "root/404.html";
-    private final String file403File = "root/403.html";
-    private final String file500File = "root/500.html";
-    private final String uploadDir = "root/upload/";
+    private static final String DIR_PREFIX = "root/";
+
+    private static final String FILE_404_FILE = DIR_PREFIX + "404.html";
+    private static final String FILE_403_FILE = DIR_PREFIX +"403.html";
+    private static final String FILE_500_FILE = DIR_PREFIX +"500.html";
+    private static final String UPLOAD_DIR = DIR_PREFIX +"upload/";
 
 
     private final static Map<String, String> REDIRECT302 = new HashMap<String, String>() {
         {
-            put("root/alex.html", "/root/alexTemp.html");
+            put(DIR_PREFIX +"alex.html",DIR_PREFIX + "alexTemp.html");
         }
     };
 
@@ -44,14 +46,14 @@ public class InboundRequest implements Runnable {
         }
     }
 
-    public void AcceptIncomingConnection() {
+    private void AcceptIncomingConnection() {
         try {
             InboundRequestHeader requestHeader = new InboundRequestHeader(in);
             HandleHeader(requestHeader);
         } catch (Exception e) {
             send500();
-            // System.err.println("Error with sending the Echo, maybe the Client is dead");
-            System.err.println(e);
+            System.err.println("Error with sending the Echo, maybe the Client is dead");
+//            System.err.println(e);
         } finally {
             try {
                 socket.close();
@@ -65,17 +67,18 @@ public class InboundRequest implements Runnable {
     private void send500() {
         Status status = Status.STATUS500;
         ContentType contentType = ContentType.HTML;
-        File fileToSend = Paths.get(file500File).toFile();
+        //Get the 500 error
+        // file and send it
+        File fileToSend = Paths.get(FILE_500_FILE).toFile();
         new ReplyHeader(status, contentType).SendHeader(out);
         try {
             Files.copy(fileToSend.toPath(), socket.getOutputStream());
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } // maybe bad
+            System.err.println("Unable to send 500 Status. Maybe Client Disconnected" );
+        }
     }
 
-    public void HandleHeader(InboundRequestHeader requestHeader) {
+    private void HandleHeader(InboundRequestHeader requestHeader) {
         switch (requestHeader.getRequestType()) {
             case GET:
                 HandleGet(requestHeader.getRequestedResource());
@@ -96,10 +99,8 @@ public class InboundRequest implements Runnable {
 
     private void HandleGet(String requestedGetFile) {
 
-        // ReplyHeader replyHeader = new ReplyHeader(Status.STATUS500, contentType);
-
-        Status status = Status.STATUS500;
-        ContentType contentType = null;
+        Status status;
+        ContentType contentType = ContentType.HTML;
         String location = null;
         File fileToSend = null;
 
@@ -134,12 +135,12 @@ public class InboundRequest implements Runnable {
                 System.err.println("File not found: " + fileToSend.getPath());
                 status = Status.STATUS404;
                 contentType = ContentType.HTML;
-                fileToSend = new File(file404File);
+                fileToSend = new File(FILE_404_FILE);
             } else if (false) { // ToDo Forbidden
                 System.err.println("Forbidden: " + fileToSend.getPath());
                 status = Status.STATUS403;
                 contentType = ContentType.HTML;
-                fileToSend = new File(file403File);
+                fileToSend = new File(FILE_403_FILE);
             }
             new ReplyHeader(status, contentType).SendHeader(out);
             try {
@@ -158,10 +159,8 @@ public class InboundRequest implements Runnable {
     }
 
     private void HandlePost(Map<String, String> postParams) {
-//        System.out.println(postParams.get("myImage"));
         Status status = Status.STATUS200;
         ContentType contentType = ContentType.PNG;
-
 
         new ReplyHeader(status, contentType).SendHeader(out);
 
@@ -179,7 +178,7 @@ public class InboundRequest implements Runnable {
         ContentType contentType = ContentType.URLENCODED;
         Status status;
         if(fileContents != null && fileName != null){
-            File f = new File(uploadDir + fileName + ".txt");
+            File f = new File(UPLOAD_DIR + fileName + ".txt");
             if(f.exists() && !f.isDirectory()){
                 status = Status.STATUS204;
                 new ReplyHeader(status, contentType).SendHeader(out);
