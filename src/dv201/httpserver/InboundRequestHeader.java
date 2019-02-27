@@ -3,88 +3,96 @@ package dv201.httpserver;
 
 import dv201.httpserver.enums.RequestType;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.StringTokenizer;
+import java.io.*;
+import java.util.*;
 
 import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
 
 class InboundRequestHeader {
 
 
-
     private RequestType requestType;
+    private byte[] rawPayload;
+    private byte[] filePayload;
+    private int contentLength;
     private String requestedResource;
-    private final Map<String,String> payload = new HashMap<>();
+    private final Map<String, String> payload = new HashMap<>();
 
-    public InboundRequestHeader(BufferedReader in) {
-        HandleInputStream(in);
+    public InboundRequestHeader(InputStream in) {
+
+        rawPayload = HandleInputStream(in);
     }
-    private void HandleInputStream(BufferedReader buffer){
-        try {
-            //Get the header from the buffer and handle the request (GET,POST,or PUT)
-            String header = getHeader(buffer);
-            ParseHeader(header);
 
+    private byte[] HandleInputStream(InputStream in) {
+        try {
+
+            byte[] rawPayload = toByteArray(in);
+
+            //Get the header from the buffer and handle the request (GET,POST,or PUT)
+            ParseHeader(rawPayload);
             //Get the payload and handle it (either nothing or the data for POST and PUT)
-            String payload = getPayload(buffer);
-            ParsePayload(payload);
+            ParsePayload(rawPayload);
+            filePayload = ParseFile(rawPayload);
 
         } catch (IOException e) {
             System.err.println("Unable to Read Input Stream");
             e.printStackTrace();
         }
+        return rawPayload;
     }
-    private String getPayload(BufferedReader buffer) throws IOException {
-        //code to read the post payload data
-        StringBuilder payload = new StringBuilder();
-        while(buffer.ready()){
-            payload.append((char) buffer.read());
-        }
-        String payloadResult = payload.toString();
-        System.out.println("Payload data is: "+ payloadResult);
-        return payloadResult;
+
+    public static byte[] toByteArray(InputStream in) throws IOException {
+
+        byte[] buffer = new byte[1000000];    //If you handle larger data use a bigger buffer size
+        int i = in.read(buffer);
+        System.out.println(i);
+        System.out.println(new String(buffer));
+        return buffer;
     }
-    private String getHeader(BufferedReader reader) throws IOException {
-        //Read the header until the line is empty
-        String line;
-        StringBuilder request = new StringBuilder();
-        while ((line = reader.readLine()) != null){
-            request.append(line).append("\r\n");
-            if (line.isEmpty()) {
+
+
+    private byte[] ParseFile(byte[] bytePayload) {
+        int counter = 0;
+        for (int i = 0; i < contentLength; i++) {
+            if (bytePayload[i] == -119) {
                 break;
             }
+//            char c = (char) bytePayload[i];
+//            System.out.println(counter +" :c: "+c + " :b: " + bytePayload[i]);
+            counter++;
+            //Process char
         }
-        String header = request.toString();
-        System.out.println("Header: \n" + header);
-        return header;
+        return Arrays.copyOfRange(bytePayload, counter, bytePayload.length);
+
     }
-    private void ParsePayload(String inboundPayload){
+
+    private void ParsePayload(byte[] inboundPayload) {
+        String input = new String(inboundPayload);
         //Split each key/value pair in the body of the payload
-        StringTokenizer stAND = new StringTokenizer(inboundPayload, "&");
+        StringTokenizer stAND = new StringTokenizer(input, "&");
         while (stAND.hasMoreTokens()) {
             //Split each key/value pair into the key and the value
             String currentToken = stAND.nextToken();
             StringTokenizer stEQUAL = new StringTokenizer(currentToken, "=");
             //If there is a valid key and value (POST requests)
-            if(stEQUAL.countTokens() == 2){
+            if (stEQUAL.countTokens() == 2) {
                 //Retrieve the key and value and place them into a hashmap
                 String key = stEQUAL.nextToken();
                 String value = stEQUAL.nextToken();
-                payload.put(key,value);
-            }
-            else if (stEQUAL.countTokens() == 1){
+                payload.put(key, value);
+            } else if (stEQUAL.countTokens() == 1) {
                 //If there is only one token it is a PUT request and the key is already defined in the program
-                payload.put(FILE_CONTENTS,stEQUAL.nextToken());
+                payload.put(FILE_CONTENTS, stEQUAL.nextToken());
             }
 
         }
+
     }
-    private void ParseHeader(String inboundHeader) {
+
+    private void ParseHeader(byte[] inboundHeader) {
+        String input = new String(inboundHeader);
         //Get the first word without a space in the header
-        String[] words = inboundHeader.split("\\s");
+        String[] words = input.split("\\s");
         switch (words[0]) {
             case "GET":
                 requestType = RequestType.GET;
@@ -102,6 +110,20 @@ class InboundRequestHeader {
             default:
                 break;
         }
+
+        Scanner scanner = new Scanner(input);
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            if (line.contains("Content-Length:")) {
+//                System.out.println("Line: " + line);
+                String[] lineSep = line.split(": ");
+                contentLength = Integer.parseInt(lineSep[1]);
+//                System.out.println("ConLen: "+ lineSep[1]);
+            }
+
+        }
+        scanner.close();
+
     }
 
     public Map<String, String> getPayload() {
@@ -116,4 +138,11 @@ class InboundRequestHeader {
         return requestType;
     }
 
+    public byte[] getRawPayload() {
+        return rawPayload;
+    }
+
+    public byte[] getFilePayload() {
+        return filePayload;
+    }
 }

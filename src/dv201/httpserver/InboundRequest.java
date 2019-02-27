@@ -15,8 +15,8 @@ import static dv201.httpserver.HTTPServerLib.FILE_NAME;
 
 
 class InboundRequest implements Runnable {
-    private final Socket socket;
-    private BufferedReader in;
+    private Socket socket;
+    private InputStream in;
     private PrintWriter out;
 
     private static final String DIR_PREFIX = "root/";
@@ -37,7 +37,8 @@ class InboundRequest implements Runnable {
 
         this.socket = socket;
         try {
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+//            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            in = socket.getInputStream();
             out = new PrintWriter(socket.getOutputStream());
         } catch (IOException e) {
             e.printStackTrace();
@@ -48,12 +49,16 @@ class InboundRequest implements Runnable {
         try {
             InboundRequestHeader requestHeader = new InboundRequestHeader(in);
             HandleHeader(requestHeader);
+
         } catch (Exception e) {
             send500();
             System.err.println("Error with sending the Echo, maybe the Client is dead");
 //            System.err.println(e);
-        } finally {
+        }
+        finally {
             try {
+                in.close();
+                out.close();
                 socket.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -83,7 +88,7 @@ class InboundRequest implements Runnable {
                 break;
 
             case POST:
-                HandlePost(requestHeader.getPayload());
+                HandlePost(requestHeader.getPayload(), requestHeader.getFilePayload());
                 break;
 
             case PUT:
@@ -150,19 +155,25 @@ class InboundRequest implements Runnable {
         }
     }
 
-    private void HandlePost(Map<String, String> postParams) {
+    private void HandlePost(Map<String, String> postParams, byte[] payload) {
         Status status = Status.STATUS200;
         ContentType contentType = ContentType.PNG;
-
         new ReplyHeader(status, contentType).SendHeader(out);
 
+
         try {
-            socket.close();
+            WriteToFile(payload);
+
+//            socket.close();/
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
+    private void WriteToFile(byte[] data) throws IOException {
+        DataOutputStream os = new DataOutputStream(new FileOutputStream(DIR_PREFIX  + "Images/test.png"));
+        os.write(data);
+        os.close();
+    }
     private void HandlePut(Map<String, String> postParams) {
         String fileContents = postParams.get(FILE_CONTENTS);
         String fileName = (postParams.get(FILE_NAME));
