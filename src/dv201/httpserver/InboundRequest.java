@@ -88,7 +88,7 @@ class InboundRequest implements Runnable {
                 break;
 
             case POST:
-                HandlePost(requestHeader.getPayload(), requestHeader.getFilePayload());
+                HandlePost(requestHeader);
                 break;
 
             case PUT:
@@ -155,15 +155,17 @@ class InboundRequest implements Runnable {
         }
     }
 
-    private void HandlePost(Map<String, String> postParams, byte[] payload) {
+    private void HandlePost(InboundRequestHeader requestHeader) {
         Status status = Status.STATUS200;
         ContentType contentType = ContentType.PNG;
-        new ReplyHeader(status, contentType).SendHeader(out);
+        if(requestHeader.isExpectContinue()){
+            new ReplyHeader(Status.STATUS100, ContentType.PNG).SendHeader(out);
+        }
 
 
         try {
-            WriteToFile(payload);
-
+            WriteToFile(requestHeader.getFilePayload());
+            new ReplyHeader(status, contentType).SendHeader(out);
 //            socket.close();/
         } catch (IOException e) {
             e.printStackTrace();

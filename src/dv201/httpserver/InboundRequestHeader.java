@@ -15,6 +15,7 @@ class InboundRequestHeader {
     private byte[] rawPayload;
     private byte[] filePayload;
     private int contentLength;
+    private boolean expectContinue = false;
     private String requestedResource;
     private final Map<String, String> payload = new HashMap<>();
 
@@ -120,6 +121,12 @@ class InboundRequestHeader {
                 contentLength = Integer.parseInt(lineSep[1]);
 //                System.out.println("ConLen: "+ lineSep[1]);
             }
+            if(line.contains("Expect:")){
+                String[] lineSep = line.split(": ");
+                if(lineSep[1].equals("100-continue")){
+                    expectContinue = true;
+                }
+            }
 
         }
         scanner.close();
@@ -144,5 +151,13 @@ class InboundRequestHeader {
 
     public byte[] getFilePayload() {
         return filePayload;
+    }
+
+    public int getContentLength() {
+        return contentLength;
+    }
+
+    public boolean isExpectContinue() {
+        return expectContinue;
     }
 }
