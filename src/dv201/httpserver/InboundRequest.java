@@ -7,11 +7,13 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
 import static dv201.httpserver.HTTPServerLib.FILE_NAME;
+import static dv201.httpserver.InboundRequestHeader.BUFF_SIZE;
 
 
 class InboundRequest implements Runnable {
@@ -162,18 +164,29 @@ class InboundRequest implements Runnable {
             new ReplyHeader(Status.STATUS100, ContentType.PNG).SendHeader(out);
         }
 
-
         try {
-            WriteToFile(requestHeader.getFilePayload());
+            WriteToFile(requestHeader);
             new ReplyHeader(status, contentType).SendHeader(out);
 //            socket.close();/
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    private void WriteToFile(byte[] data) throws IOException {
+    private void WriteToFile(InboundRequestHeader requestHeader) throws IOException {
         DataOutputStream os = new DataOutputStream(new FileOutputStream(DIR_PREFIX  + "Images/test.png"));
-        os.write(data);
+        byte[] tempBuffer;
+        for(int i = 0; i <= requestHeader.getPassNum(); i++){
+            if(i==0){
+                tempBuffer =  Arrays.copyOfRange(requestHeader.getRawPayload()[i], requestHeader.getFileStart(), requestHeader.getRawPayload()[0].length);
+//                System.out.println(new String(tempBuffer));
+                os.write(tempBuffer);
+            }
+            else {
+                tempBuffer = requestHeader.getRawPayload()[i].clone();
+                os.write(tempBuffer);
+            }
+        }
+
         os.close();
     }
     private void HandlePut(Map<String, String> postParams) {

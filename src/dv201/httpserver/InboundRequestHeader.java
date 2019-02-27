@@ -9,14 +9,16 @@ import java.util.*;
 import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
 
 class InboundRequestHeader {
-
+    public static final int BUFF_SIZE = 4096;
 
     private RequestType requestType;
-    private byte[] rawPayload;
-    private byte[] filePayload;
+    private byte[][] rawPayload;
+    private int passNum;
+//    private byte[] filePayload;
     private int contentLength;
     private boolean expectContinue = false;
     private String requestedResource;
+    private int fileStart = 0;
     private final Map<String, String> payload = new HashMap<>();
 
     public InboundRequestHeader(InputStream in) {
@@ -24,16 +26,16 @@ class InboundRequestHeader {
         rawPayload = HandleInputStream(in);
     }
 
-    private byte[] HandleInputStream(InputStream in) {
+    private byte[][] HandleInputStream(InputStream in) {
         try {
 
-            byte[] rawPayload = toByteArray(in);
+            rawPayload = toByteArray(in);
 
             //Get the header from the buffer and handle the request (GET,POST,or PUT)
-            ParseHeader(rawPayload);
+            ParseHeader(rawPayload[0]);
             //Get the payload and handle it (either nothing or the data for POST and PUT)
-            ParsePayload(rawPayload);
-            filePayload = ParseFile(rawPayload);
+            ParsePayload(rawPayload[0]);
+            fileStart = ParseFile(rawPayload[0]);
 
         } catch (IOException e) {
             System.err.println("Unable to Read Input Stream");
@@ -42,17 +44,50 @@ class InboundRequestHeader {
         return rawPayload;
     }
 
-    public static byte[] toByteArray(InputStream in) throws IOException {
+    public byte[][] toByteArray(InputStream in) throws IOException {
 
-        byte[] buffer = new byte[1000000];    //If you handle larger data use a bigger buffer size
-        int i = in.read(buffer);
-        System.out.println(i);
-        System.out.println(new String(buffer));
-        return buffer;
+
+        byte[] buffer = new byte[BUFF_SIZE];    //If you handle larger data use a bigger buffer size
+        byte[][] bufferBuffer = new byte[BUFF_SIZE][BUFF_SIZE];
+
+        passNum = 0;
+        int totalCount;
+//        bufferBuffer[passNum] = buffer;
+        do{
+            totalCount = in.read(buffer);
+
+            bufferBuffer[passNum] = buffer.clone();
+            System.out.println("passNum: "+ passNum);
+//            System.out.println(new String(bufferBuffer[passNum]));
+            passNum++;
+
+            }while(totalCount == BUFF_SIZE);
+        Scanner scanner = new Scanner(new String(bufferBuffer[0]));
+        while (scanner.hasNextLine()) {
+            String line = scanner.nextLine();
+            if (line.contains("Content-Length:")) {
+//                System.out.println("Line: " + line);
+                String[] lineSep = line.split(": ");
+                contentLength = Integer.parseInt(lineSep[1]);
+//                System.out.println("ConLen: "+ lineSep[1]);
+            }
+            if(line.contains("Expect:")){
+                String[] lineSep = line.split(": ");
+                if(lineSep[1].equals("100-continue")){
+                    expectContinue = true;
+                }
+            }
+
+        }
+
+        scanner.close();
+        System.out.println("totalCount equals: " + totalCount);
+//        System.out.println(new String(buffer));
+        return bufferBuffer;
     }
 
 
-    private byte[] ParseFile(byte[] bytePayload) {
+    private int ParseFile(byte[] bytePayload) {
         int counter = 0;
         for (int i = 0; i < contentLength; i++) {
             if (bytePayload[i] == -119) {
@@ -63,7 +98,7 @@ class InboundRequestHeader {
             counter++;
             //Process char
         }
-        return Arrays.copyOfRange(bytePayload, counter, bytePayload.length);
+        return counter;
 
     }
 
@@ -112,24 +147,24 @@ class InboundRequestHeader {
                 break;
         }
 
-        Scanner scanner = new Scanner(input);
-        while (scanner.hasNextLine()) {
-            String line = scanner.nextLine();
-            if (line.contains("Content-Length:")) {
-//                System.out.println("Line: " + line);
-                String[] lineSep = line.split(": ");
-                contentLength = Integer.parseInt(lineSep[1]);
-//                System.out.println("ConLen: "+ lineSep[1]);
-            }
-            if(line.contains("Expect:")){
-                String[] lineSep = line.split(": ");
-                if(lineSep[1].equals("100-continue")){
-                    expectContinue = true;
-                }
-            }
-
-        }
-        scanner.close();
+//        Scanner scanner = new Scanner(input);
+//        while (scanner.hasNextLine()) {
+//            String line = scanner.nextLine();
+//            if (line.contains("Content-Length:")) {
+////                System.out.println("Line: " + line);
+//                String[] lineSep = line.split(": ");
+//                contentLength = Integer.parseInt(lineSep[1]);
+////                System.out.println("ConLen: "+ lineSep[1]);
+//            }
+//            if(line.contains("Expect:")){
+//                String[] lineSep = line.split(": ");
+//                if(lineSep[1].equals("100-continue")){
+//                    expectContinue = true;
+//                }
+//            }
+//
+//        }
+//        scanner.close();
 
     }
 
@@ -145,13 +180,9 @@ class InboundRequestHeader {
         return requestType;
     }
 
-    public byte[] getRawPayload() {
-        return rawPayload;
-    }
-
-    public byte[] getFilePayload() {
-        return filePayload;
-    }
+//    public byte[] getFilePayload() {
+//        return filePayload;
+//    }
 
     public int getContentLength() {
         return contentLength;
@@ -159,5 +190,17 @@ class InboundRequestHeader {
 
     public boolean isExpectContinue() {
         return expectContinue;
+    }
+
+    public byte[][] getRawPayload() {
+        return rawPayload;
+    }
+
+    public int getPassNum() {
+        return passNum;
+    }
+
+    public int getFileStart() {
+        return fileStart;
     }
 }
