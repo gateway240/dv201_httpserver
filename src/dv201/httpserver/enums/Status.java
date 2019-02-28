@@ -1,7 +1,7 @@
 package dv201.httpserver.enums;
 
 public enum Status{
-    STATUS100("HTTP/1.1 100 Continue"),
+    STATUS100("HTTP/1.1 100 CONTINUE"),
     STATUS200("HTTP/1.1 200 OK"),
     STATUS201("HTTP/1.1 201 CREATED"),
     STATUS204("HTTP/1.1 204 NO CONTENT"),
