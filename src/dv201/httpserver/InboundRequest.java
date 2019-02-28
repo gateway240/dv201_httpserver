@@ -8,14 +8,9 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
-import static dv201.httpserver.HTTPServerLib.FILE_NAME;
-import static dv201.httpserver.InboundRequestHeader.BUFF_SIZE;
 
 class InboundRequest implements Runnable {
     private Socket socket;
@@ -38,18 +33,16 @@ class InboundRequest implements Runnable {
     private final static List<File> FORBIDDEN = new ArrayList<File>() {
         {
             add(new File(DIR_PREFIX + "forbidden.html"));
+            add(new File(FILE_404_FILE));
+            add(new File(FILE_403_FILE));
+            add(new File(FILE_500_FILE));
         }
     };
 
-    public InboundRequest(Socket socket) {
-
+    public InboundRequest(Socket socket) throws IOException {
         this.socket = socket;
-        try {
-            in = socket.getInputStream();
-            out = new PrintWriter(socket.getOutputStream());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        in = socket.getInputStream();
+        out = new PrintWriter(socket.getOutputStream());
     }
 
     private void AcceptIncomingConnection() {
@@ -59,8 +52,7 @@ class InboundRequest implements Runnable {
 
         } catch (Exception e) {
             send500();
-            System.err.println("Error while handling the connection --> 500");
-            e.printStackTrace();
+            System.err.println("Error while handling the connection --> HTTP 500");
             System.err.println(e);
         } finally {
             try {
@@ -75,6 +67,7 @@ class InboundRequest implements Runnable {
     }
 
     private void send500() {
+        // all problems and error in the server should lead to this
         Status status = Status.STATUS500;
         ContentType contentType = ContentType.HTML;
         File fileToSend = Paths.get(FILE_500_FILE).toFile();
@@ -113,17 +106,21 @@ class InboundRequest implements Runnable {
         File fileToSend = null;
 
         if (REDIRECT302.containsKey(requestedGetFile)) {
+            // redirect 302
             status = Status.STATUS302;
             location = REDIRECT302.get(requestedGetFile);
         } else if (requestedGetFile.endsWith(".html") || requestedGetFile.endsWith(".htm")) {
+            // normal html file
             status = Status.STATUS200;
             contentType = ContentType.HTML;
             fileToSend = Paths.get(requestedGetFile).toFile();
         } else if (requestedGetFile.endsWith(".png")) {
+            // normal png file
             status = Status.STATUS200;
             contentType = ContentType.PNG;
             fileToSend = Paths.get(requestedGetFile).toFile();
         } else {
+            // not a file, so maybe a folder for which we can serve a index file
             File mayFolder = Paths.get(requestedGetFile).toFile();
 
             File tryIndexFile = new File(mayFolder, "index.html");
@@ -136,25 +133,36 @@ class InboundRequest implements Runnable {
         }
 
         if (status == Status.STATUS302) {
+            // 302 has no body so it is just that little header that is send
             new ReplyHeader(status, location).SendHeader(out);
         } else {
-
             if (!(fileToSend != null && fileToSend.isFile() && Files.isReadable(fileToSend.toPath()))) {
+                // if the file does not exist or is not readable for any reason, send a 404
                 System.err.println("File not found: " + fileToSend.getPath());
                 status = Status.STATUS404;
                 contentType = ContentType.HTML;
                 fileToSend = new File(FILE_404_FILE);
             } else if (FORBIDDEN.contains(fileToSend)) {
+                // if the file is forbidden to access, send a 403
                 System.err.println("Forbidden: " + fileToSend.getPath());
                 status = Status.STATUS403;
                 contentType = ContentType.HTML;
                 fileToSend = new File(FILE_403_FILE);
             }
+            // send the header
             new ReplyHeader(status, contentType, fileToSend.length()).SendHeader(out);
+
+            // send the body
             try {
                 Files.copy(fileToSend.toPath(), socket.getOutputStream());
                 socket.getOutputStream().flush();
             } catch (IOException e) {
+                // if this happend, we unfortunatelly already send the OK header and no we should send a 500
+                // we accept this because it should be very unlikely to happen because we already checked the isReadable()
+                // a way to avoid this, would be to read in first the file, than send the header, and then the file content.
+                // this would use more RAM because the whole file would be temporarely safed
+                // and even then their could be a error in sending after the OK is already send.
+                // This is why we choosed this way.
                 socket.getOutputStream().write("Something went wrong after already sending the header".getBytes());
             }
         }
@@ -164,13 +172,24 @@ class InboundRequest implements Runnable {
         if (requestHeader.isExpectContinue()) {
             new ReplyHeader(Status.STATUS100).SendHeader(out);
         }
+        // save the sended png file to the upload folder
         WriteToFile(requestHeader);
-        // new ReplyHeader(status, contentType).SendHeader(out);
+        
+        // serve the requested file like it has been a GET request. 
+        // in our case it should always the uploadFile.html at this point
         HandleGet(DIR_PREFIX + requestHeader.getRequestedResource());
     }
 
     private void WriteToFile(InboundRequestHeader requestHeader) throws IOException {
-        FileOutputStream os = new FileOutputStream(UPLOAD_DIR + requestHeader.startPNGReadingAndFilename());
+        // uses the original filename of the sendet file and saves it in the upload folder
+        // additionally the current timestamp is added because with POST their should nothing be overridden like with PUT
+        File fileToSave = new File(UPLOAD_DIR + System.currentTimeMillis() + "-" + requestHeader.startPNGReadingAndFilename());
+        while (fileToSave.exists()){
+            // really unlikely; if the file already exists use a later timestamp
+            fileToSave = new File(
+                    UPLOAD_DIR + System.currentTimeMillis() + "-" + requestHeader.startPNGReadingAndFilename());
+        }
+        FileOutputStream os = new FileOutputStream(fileToSave);
         while (true) {
             byte[] buffer = new byte[1024];
             int len = requestHeader.readPNG(buffer);
@@ -183,10 +202,12 @@ class InboundRequest implements Runnable {
     }
 
     private void HandlePut(InboundRequestHeader requestHeader) throws IOException {
+        // send the continue header, if the client asked for it
         if (requestHeader.isExpectContinue()) {
             new ReplyHeader(Status.STATUS100).SendHeader(out);
         }
 
+        // the name after the PUT
         String fileName = requestHeader.getRequestedResource();
         System.out.println(fileName);
         Status status;
@@ -194,19 +215,23 @@ class InboundRequest implements Runnable {
         if (fileName != null) {
             File f = new File(DIR_PREFIX + fileName);
             if (f.exists() && f.isFile()) {
+                // file already exists, so it will be updated
                 status = Status.STATUS204;
                 fileLocationHeader = fileName;
             } else if (!f.exists()) {
+                // file does not exist so it will be created
                 status = Status.STATUS201; // Morgan said we can send a 204 in both cases (created and overridden)
                 fileLocationHeader = fileName;
             } else if (f.exists() && f.isDirectory()) {
+                // file exists but it is directory, a index.html will be created in this
+                // directory with the content of the sendet file. The new location will be seen
+                // in the content-location header field
                 f = new File(f, "index.html");
                 if (f.exists()) {
                     status = Status.STATUS204;
                 } else {
                     status = Status.STATUS201;
                 }
-                // Morgan said we can send a 204 in both cases (created and overridden)
                 fileLocationHeader = Paths.get(DIR_PREFIX).relativize(f.toPath()).toString();
             } else {
                 // not reachable
@@ -214,6 +239,7 @@ class InboundRequest implements Runnable {
             }
             FileOutputStream os = new FileOutputStream(f.getPath());
 
+            // save the sendet file on the server machine
             while (true) {
                 byte[] buffer = new byte[1024];
                 int len = requestHeader.readPNGPut(buffer);
@@ -224,11 +250,11 @@ class InboundRequest implements Runnable {
                     break;
             }
             os.close();
+
+            // send the header. The reason why it is sendet only now is that if something
+            // worked wrong during saving the file, we can still send the 500
             new ReplyHeader(status, fileLocationHeader).SendHeader(out);
         } else {
-            // ?? why do you say 200 OK and not 204 NO CONTENT
-            // status = Status.STATUS200;
-            // new ReplyHeader(status, contentType).SendHeader(out);
             send500();
         }
     }

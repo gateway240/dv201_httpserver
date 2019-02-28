@@ -7,24 +7,15 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
-
 class InboundRequestHeader {
-    public static final int BUFF_SIZE = 4096;
-
     private RequestType requestType;
-    private byte[][] rawPayload;
-    private int passNum;
-    // private byte[] filePayload;
     private int contentLength;
     private boolean expectContinue = false;
     private String requestedResource;
-    private int fileStart = 0;
-    private final Map<String, String> payload = new HashMap<>();
     public String header;
     private InputStream inpStr;
+    // boundary for the post body
     private String boundary;
-    DataInputStream inDataread;
 
     public InboundRequestHeader(InputStream in) throws IOException {
         inpStr = in;
@@ -38,10 +29,8 @@ class InboundRequestHeader {
                 break;
             }
         }
+        // trim is against the problems you have with \r and \n on different os's
         header = header.trim();
-        System.out.println("###header");
-        System.out.println(header);
-        System.out.println("###header ende");
         ParseHeader();
     }
 
@@ -59,6 +48,7 @@ class InboundRequestHeader {
     }
 
 
+    // reads to input stream to the position where the picture starts and extracts the filename
     public String startPNGReadingAndFilename() throws IOException {
         String pictureHeader = "";
         while (true) {
@@ -78,6 +68,7 @@ class InboundRequestHeader {
         
     }
 
+    // reads the input stream until the boundary occurs
     public int readPNG(byte[] buffer) throws IOException {
         String usedBound = "--" + boundary;
         int len = inpStr.read(buffer);
@@ -99,39 +90,16 @@ class InboundRequestHeader {
         return len;
     }
 
-    private void ParsePayload(byte[] inboundPayload) {
-        String input = new String(inboundPayload);
-        // Split each key/value pair in the body of the payload
-        StringTokenizer stAND = new StringTokenizer(input, "&");
-        while (stAND.hasMoreTokens()) {
-            // Split each key/value pair into the key and the value
-            String currentToken = stAND.nextToken();
-            StringTokenizer stEQUAL = new StringTokenizer(currentToken, "=");
-            // If there is a valid key and value (POST requests)
-            if (stEQUAL.countTokens() == 2) {
-                // Retrieve the key and value and place them into a hashmap
-                String key = stEQUAL.nextToken();
-                String value = stEQUAL.nextToken();
-                payload.put(key, value);
-            } else if (stEQUAL.countTokens() == 1) {
-                // If there is only one token it is a PUT request and the key is already defined
-                // in the program
-                payload.put(FILE_CONTENTS, stEQUAL.nextToken());
-            }
 
-        }
-
-    }
-
+    // extracts the important information out of the header
     private void ParseHeader() {
-        System.out.println("Parse Header: ");
-        System.out.println(header);
         Scanner scanner = new Scanner(header);
         if (!scanner.hasNextLine()){
             scanner.close();
             throw new RuntimeException("A strange error, because the header is just empty");
         }
         String line = scanner.nextLine();
+        System.out.println(line);
         String[] words = line.split("\\s");
         switch (words[0]) {
         case "GET":
@@ -154,10 +122,8 @@ class InboundRequestHeader {
         while (scanner.hasNextLine()) {
             String headerLine = scanner.nextLine();
             if (headerLine.contains("Content-Length:")) {
-                // System.out.println("Line: " + line);
                 String[] lineSep = headerLine.split(": ");
                 contentLength = Integer.parseInt(lineSep[1]);
-                // System.out.println("ConLen: "+ lineSep[1]);
             }
             if (headerLine.contains("Expect:")) {
                 String[] lineSep = headerLine.split(": ");
@@ -173,10 +139,6 @@ class InboundRequestHeader {
         scanner.close();
     }
 
-    public Map<String, String> getPayload() {
-        return payload;
-    }
-
     public String getRequestedResource() {
         return requestedResource;
     }
@@ -185,27 +147,11 @@ class InboundRequestHeader {
         return requestType;
     }
 
-    // public byte[] getFilePayload() {
-    // return filePayload;
-    // }
-
     public int getContentLength() {
         return contentLength;
     }
 
     public boolean isExpectContinue() {
         return expectContinue;
-    }
-
-    public byte[][] getRawPayload() {
-        return rawPayload;
-    }
-
-    public int getPassNum() {
-        return passNum;
-    }
-
-    public int getFileStart() {
-        return fileStart;
     }
 }
