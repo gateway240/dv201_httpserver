@@ -12,10 +12,16 @@ class ReplyHeader {
     private ContentType contentType = null;
     private String location = null;
     private String contentLocation = null;
+    private Long contentLength = null;
 
-    public ReplyHeader(Status status, ContentType contentType) {
+    public ReplyHeader(Status status, ContentType contentType, long contentLength) {
+        this.contentLength = contentLength;
         this.status = status;
         this.contentType = contentType;
+    }
+
+    public ReplyHeader(Status status) {
+        this.status = status;
     }
 
     public ReplyHeader(Status status, String location) {
@@ -44,6 +50,10 @@ class ReplyHeader {
         if (contentLocation!= null) {
             out.println("Content-Location: " + contentLocation);
         }
+        if (contentLength != null){
+            out.println("Content-Length: " + contentLength);
+        }
+
         out.println();
         out.flush();
 

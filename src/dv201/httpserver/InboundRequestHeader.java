@@ -120,7 +120,12 @@ class InboundRequestHeader {
     }
 
     private void ParseHeader() {
+        System.out.println(header);
         Scanner scanner = new Scanner(header);
+        if (!scanner.hasNextLine()){
+            scanner.close();
+            throw new RuntimeException("A strange error, because the header is just empty");
+        }
         String line = scanner.nextLine();
         String[] words = line.split("\\s");
         switch (words[0]) {
