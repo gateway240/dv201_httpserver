@@ -24,74 +24,78 @@ class InboundRequestHeader {
     public String header;
     private InputStream inpStr;
     private String boundary;
-    InputStreamReader inread;
+    DataInputStream inDataread;
 
     public InboundRequestHeader(InputStream in) throws IOException {
         inpStr = in;
-        inread = new InputStreamReader(in, "ISO-8859-1");
 
-        StringBuilder stringbuld = new StringBuilder();
+        header = "";
         while (true) {
-            int r = inread.read();
-            if (r == -1)
-                break;
-            // System.out.println((char) r);
-            stringbuld.append((char) r);
+            String line = readLine(in);
+            header += line + "\n"; 
 
-            if (stringbuld.toString().endsWith("\n\r\n"))
+            if (line == null || line.equals("") || line.equals("\r") || line.equals("\n") || line.equals("\n\r")){
                 break;
+            }
         }
-        header = stringbuld.toString();
+        header = header.trim();
+        System.out.println("###header");
+        System.out.println(header);
+        System.out.println("###header ende");
         ParseHeader();
+    }
+
+    private static String readLine(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        int c;
+        for (c = inputStream.read(); c != '\n' && c != -1; c = inputStream.read()) {
+            byteArrayOutputStream.write(c);
+        }
+        if (c == -1 && byteArrayOutputStream.size() == 0) {
+            return null;
+        }
+        String line = byteArrayOutputStream.toString("UTF-8");
+        return line.trim();
     }
 
 
     public String startPNGReadingAndFilename() throws IOException {
-        StringBuilder stringbuild = new StringBuilder();
+        String pictureHeader = "";
         while (true) {
-            int r = inread.read();
-            if (r == -1)
-                break;
-            // System.out.println((char) r);
-            stringbuild.append((char) r);
+            String line = readLine(inpStr);
+            pictureHeader += line + "\n";
 
-            if (stringbuild.toString().endsWith("\n\r\n"))
+            if (line == null || line.equals("") || line.equals("\r") || line.equals("\n") || line.equals("\n\r")) {
                 break;
+            }
         }
+        pictureHeader = pictureHeader.trim();
 
         Pattern p = Pattern.compile("filename=\"([^\"]*)\"");
-        Matcher m = p.matcher(stringbuild.toString());
+        Matcher m = p.matcher(pictureHeader);
         m.find();
         return(m.group(1));
         
     }
 
     public int readPNG(byte[] buffer) throws IOException {
-        char[] chbuf = new char[buffer.length];
         String usedBound = "--" + boundary;
-        int len = inread.read(chbuf);
+        int len = inpStr.read(buffer);
         for (int i = 0; i < len; i++) {
-            if (i + usedBound.length() < chbuf.length - 1) {
-                char[] nextChars = Arrays.copyOfRange(chbuf, i, i + usedBound.length());
+            if (i + usedBound.length() < buffer.length - 1) {
+                byte[] nextChars = Arrays.copyOfRange(buffer, i, i + usedBound.length());
                 if (new String(nextChars).equals(usedBound)) {
                     // ende
                     len = i;
                     break;
                 }
             }
-            buffer[i] = (byte) chbuf[i];
         }
-
         return len;
     }
 
     public int readPNGPut(byte[] buffer) throws IOException {
-        char[] chbuf = new char[buffer.length];
-        int len = inread.read(chbuf);
-        for (int i = 0; i < len; i++) {
-            buffer[i] = (byte) chbuf[i];
-        }
-
+        int len = inpStr.read(buffer);
         return len;
     }
 
@@ -120,6 +124,7 @@ class InboundRequestHeader {
     }
 
     private void ParseHeader() {
+        System.out.println("Parse Header: ");
         System.out.println(header);
         Scanner scanner = new Scanner(header);
         if (!scanner.hasNextLine()){
