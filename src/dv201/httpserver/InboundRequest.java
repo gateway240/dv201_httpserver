@@ -7,8 +7,10 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static dv201.httpserver.HTTPServerLib.FILE_CONTENTS;
@@ -35,11 +37,16 @@ class InboundRequest implements Runnable {
         }
     };
 
+    private final static List<File> FORBIDDEN = new ArrayList<File>() {
+        {
+            add(new File(DIR_PREFIX + "forbidden.html"));
+        }
+    };
+
     public InboundRequest(Socket socket) {
 
         this.socket = socket;
         try {
-//            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             in = socket.getInputStream();
             out = new PrintWriter(socket.getOutputStream());
         } catch (IOException e) {
@@ -54,6 +61,7 @@ class InboundRequest implements Runnable {
 
         } catch (Exception e) {
             send500();
+            e.printStackTrace();
             System.err.println("Error with sending the Echo, maybe the Client is dead");
 //            System.err.println(e);
         }
@@ -83,18 +91,19 @@ class InboundRequest implements Runnable {
         }
     }
 
-    private void HandleHeader(InboundRequestHeader requestHeader) {
+    private void HandleHeader(InboundRequestHeader requestHeader) throws IOException {
         switch (requestHeader.getRequestType()) {
             case GET:
-                HandleGet(requestHeader.getRequestedResource());
+                HandleGet(DIR_PREFIX + requestHeader.getRequestedResource());
                 break;
 
             case POST:
+                System.out.println("handle post");
                 HandlePost(requestHeader);
                 break;
 
             case PUT:
-                HandlePut(requestHeader.getPayload());
+                HandlePut(requestHeader);
                 break;
 
             default:
@@ -133,7 +142,7 @@ class InboundRequest implements Runnable {
         }
 
         if (status == Status.STATUS302) {
-            new ReplyHeader(status, contentType, location).SendHeader(out);
+            new ReplyHeader(status, location).SendHeader(out);
         } else {
 
             if (!(fileToSend != null && fileToSend.isFile() && Files.isReadable(fileToSend.toPath()))) {
@@ -141,7 +150,7 @@ class InboundRequest implements Runnable {
                 status = Status.STATUS404;
                 contentType = ContentType.HTML;
                 fileToSend = new File(FILE_404_FILE);
-            } else if (false) { // ToDo Forbidden
+            } else if (FORBIDDEN.contains(fileToSend)) { // ToDo Forbidden
                 System.err.println("Forbidden: " + fileToSend.getPath());
                 status = Status.STATUS403;
                 contentType = ContentType.HTML;
@@ -157,74 +166,75 @@ class InboundRequest implements Runnable {
         }
     }
 
-    private void HandlePost(InboundRequestHeader requestHeader) {
-        Status status = Status.STATUS200;
-        ContentType contentType = ContentType.PNG;
+    private void HandlePost(InboundRequestHeader requestHeader) throws IOException {
         if(requestHeader.isExpectContinue()){
             new ReplyHeader(Status.STATUS100, ContentType.PNG).SendHeader(out);
         }
-
-        try {
-            WriteToFile(requestHeader);
-            new ReplyHeader(status, contentType).SendHeader(out);
-//            socket.close();/
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        WriteToFile(requestHeader);
+        //new ReplyHeader(status, contentType).SendHeader(out);
+        HandleGet(DIR_PREFIX + requestHeader.getRequestedResource());
     }
-    private void WriteToFile(InboundRequestHeader requestHeader) throws IOException {
-        DataOutputStream os = new DataOutputStream(new FileOutputStream(DIR_PREFIX  + "Images/test.png"));
-        byte[] tempBuffer;
-        for(int i = 0; i <= requestHeader.getPassNum(); i++){
-            if(i==0){
-                tempBuffer =  Arrays.copyOfRange(requestHeader.getRawPayload()[i], requestHeader.getFileStart(), requestHeader.getRawPayload()[0].length);
-//                System.out.println(new String(tempBuffer));
-                os.write(tempBuffer);
-            }
-            else {
-                tempBuffer = requestHeader.getRawPayload()[i].clone();
-                os.write(tempBuffer);
-            }
-        }
 
+    private void WriteToFile(InboundRequestHeader requestHeader) throws IOException {
+        FileOutputStream os = new FileOutputStream(UPLOAD_DIR + requestHeader.startPNGReadingAndFilename()); //use the original name
+        while (true){
+            byte[] buffer = new byte[1024];
+            int len = requestHeader.readPNG(buffer);
+            //System.out.println(buffer);
+            os.write(buffer, 0, len);
+            if (len != 1024) break;
+        }
         os.close();
     }
-    private void HandlePut(Map<String, String> postParams) {
-        String fileContents = postParams.get(FILE_CONTENTS);
-        String fileName = (postParams.get(FILE_NAME));
+    
+    private void HandlePut(InboundRequestHeader requestHeader) {
+        if (requestHeader.isExpectContinue()) {
+            new ReplyHeader(Status.STATUS100, ContentType.PNG).SendHeader(out);
+        }
 
-        ContentType contentType = ContentType.URLENCODED;
+        String fileName = requestHeader.getRequestedResource();
+        System.out.println(fileName);
         Status status;
-        if(fileContents != null && fileName != null){
-            File f = new File(UPLOAD_DIR + fileName + ".txt");
-            if(f.exists() && !f.isDirectory()){ //?? why is it no content, if it exists and is not a directory, becaue than it is a file 
+        if(fileName != null){
+            File f = new File(DIR_PREFIX + fileName);
+            if(f.exists() && f.isFile()){
                 status = Status.STATUS204;
-                new ReplyHeader(status, contentType).SendHeader(out);
-            }
-            else{
+                new ReplyHeader(status, fileName).SendHeader(out);
+            }else if (!f.exists()){
                 // I would try to send that OK message *after* you actual wrote the file without an error
-                status = Status.STATUS201;
-                new ReplyHeader(status, contentType).SendHeader(out);
+                status = Status.STATUS201; //Morgan said we can send a 204 in both cases (created and overridden)
+                new ReplyHeader(status, fileName).SendHeader(out);
+            }else if (f.exists() && f.isDirectory()){
+                f = new File(f, "index.html");
+                if (f.exists()){
+                    status = Status.STATUS204;
+                }else{
+                    status = Status.STATUS201;
+                }
+                // Morgan said we can send a 204 in both cases (created and overridden)
+                new ReplyHeader(status, Paths.get(DIR_PREFIX).relativize(f.toPath()).toString()).SendHeader(out);
             }
-            FileWriter fileWriter = null;
             try {
-                fileWriter = new FileWriter(f);
-                fileWriter.write(fileContents);
+                FileOutputStream os = new FileOutputStream(f.getPath());
+
+                while (true) {
+                    byte[] buffer = new byte[1024];
+                    int len = requestHeader.readPNGPut(buffer);
+                    if (len == -1) break;
+                    os.write(buffer, 0, len);
+                    if (len != 1024)
+                        break;
+                }
+                os.close();
             } catch (IOException e) {
                 e.printStackTrace();
-            }
-            finally{
-                try {
-                    fileWriter.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
         else{
             //?? why do you say 200 OK and not 204 NO CONTENT
-            status = Status.STATUS200;
-            new ReplyHeader(status, contentType).SendHeader(out);
+            //status = Status.STATUS200;
+            //new ReplyHeader(status, contentType).SendHeader(out);
+            send500();
         }
     }
 

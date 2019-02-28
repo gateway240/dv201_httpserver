@@ -8,31 +8,42 @@ import java.io.PrintWriter;
 
 class ReplyHeader {
 
-    private final Status status;
-    private final ContentType contentType;
+    private Status status;
+    private ContentType contentType = null;
     private String location = null;
+    private String contentLocation = null;
 
     public ReplyHeader(Status status, ContentType contentType) {
         this.status = status;
         this.contentType = contentType;
     }
 
-    public ReplyHeader(Status status, ContentType contentType, String location)  {
+    public ReplyHeader(Status status, String location) {
         this.status = status;
-        this.contentType = contentType;
-        this.location = location;
+        if (status == Status.STATUS302){
+            this.location = location;
+        }else{
+            this.contentLocation = location;
+        }
+        
     }
 
     public void SendHeader(PrintWriter out){
         if (status == Status.STATUS302 && location == null){
             throw new RuntimeException("No location set for 302 reply");
         }
+
         out.println(getStatus().toString());
-        if (status == Status.STATUS302) {
+
+        if (location != null) {
             out.println("Location: " + location);
-        }else{
+        }
+        if (contentType != null){
             out.println(getContentType().toString());
         }        
+        if (contentLocation!= null) {
+            out.println("Content-Location: " + contentLocation);
+        }
         out.println();
         out.flush();
 

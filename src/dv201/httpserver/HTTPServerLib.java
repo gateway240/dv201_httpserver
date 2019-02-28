@@ -9,8 +9,8 @@ class HTTPServerLib {
     public static Integer ParsePort(String port){
         try {
             Integer myPort = Integer.valueOf(port);
-            if(myPort <= 0 || myPort > 65535){
-                System.err.println("your Port is not between 0 and 65535");
+            if(myPort < 1 || myPort > 65535){
+                System.err.println("your Port is not between 1 and 65535");
                 return 0;
             }
            else{
