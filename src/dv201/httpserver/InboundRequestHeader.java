@@ -29,7 +29,7 @@ class InboundRequestHeader {
                 break;
             }
         }
-        // trim is against the problems you have with \r and \n on different os's
+        // trim removes the problems you have with \r and \n on different os's
         header = header.trim();
         ParseHeader();
     }
@@ -40,6 +40,7 @@ class InboundRequestHeader {
         for (c = inputStream.read(); c != '\n' && c != -1; c = inputStream.read()) {
             byteArrayOutputStream.write(c);
         }
+        //-i indicates that there is no more left to be read
         if (c == -1 && byteArrayOutputStream.size() == 0) {
             return null;
         }
@@ -48,7 +49,7 @@ class InboundRequestHeader {
     }
 
 
-    // reads to input stream to the position where the picture starts and extracts the filename
+    // reads the input stream to the position where the picture starts and extracts the filename
     public String startPNGReadingAndFilename() throws IOException {
         String pictureHeader = "";
         while (true) {
@@ -76,7 +77,7 @@ class InboundRequestHeader {
             if (i + usedBound.length() < buffer.length - 1) {
                 byte[] nextChars = Arrays.copyOfRange(buffer, i, i + usedBound.length());
                 if (new String(nextChars).equals(usedBound)) {
-                    // ende
+                    // end
                     len = i;
                     break;
                 }
