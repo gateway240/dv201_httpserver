@@ -12,8 +12,8 @@ class InboundRequestHeader {
     private int contentLength;
     private boolean expectContinue = false;
     private String requestedResource;
-    public String header;
-    private InputStream inpStr;
+    private String header;
+    private final InputStream inpStr;
     // boundary for the post body
     private String boundary;
 
@@ -51,19 +51,19 @@ class InboundRequestHeader {
 
     // reads the input stream to the position where the picture starts and extracts the filename
     public String startPNGReadingAndFilename() throws IOException {
-        String pictureHeader = "";
+        StringBuilder pictureHeader = new StringBuilder();
         while (true) {
             String line = readLine(inpStr);
-            pictureHeader += line + "\n";
+            pictureHeader.append(line).append("\n");
 
             if (line == null || line.equals("") || line.equals("\r") || line.equals("\n") || line.equals("\n\r")) {
                 break;
             }
         }
-        pictureHeader = pictureHeader.trim();
+        pictureHeader = new StringBuilder(pictureHeader.toString().trim());
 
         Pattern p = Pattern.compile("filename=\"([^\"]*)\"");
-        Matcher m = p.matcher(pictureHeader);
+        Matcher m = p.matcher(pictureHeader.toString());
         m.find();
         return(m.group(1));
         
@@ -87,8 +87,7 @@ class InboundRequestHeader {
     }
 
     public int readPNGPut(byte[] buffer) throws IOException {
-        int len = inpStr.read(buffer);
-        return len;
+        return inpStr.read(buffer);
     }
 
 

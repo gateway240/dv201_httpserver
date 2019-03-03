@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 class InboundRequest implements Runnable {
-    private Socket socket;
+    private final Socket socket;
     private InputStream in;
     private PrintWriter out;
 
@@ -53,7 +53,7 @@ class InboundRequest implements Runnable {
         } catch (Exception e) {
             send500();
             System.err.println("Error while handling the connection --> HTTP 500");
-            System.err.println(e);
+            e.printStackTrace();
         } finally {
             try {
                 in.close();
