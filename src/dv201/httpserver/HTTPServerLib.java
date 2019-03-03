@@ -3,9 +3,6 @@ package dv201.httpserver;
 class HTTPServerLib {
     public static final String ARGS_USAGE = "usage: MyPort\n";
 
-    public static final String FILE_CONTENTS = "fileContents";
-    public static final String FILE_NAME = "name";
-
     public static Integer ParsePort(String port){
         try {
             Integer myPort = Integer.valueOf(port);

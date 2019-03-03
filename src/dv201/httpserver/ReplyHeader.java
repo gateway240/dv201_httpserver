@@ -8,7 +8,7 @@ import java.io.PrintWriter;
 
 class ReplyHeader {
 
-    private Status status;
+    private final Status status;
     private ContentType contentType = null;
     private String location = null;
     private String contentLocation = null;

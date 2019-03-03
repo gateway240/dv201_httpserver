@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 class InboundRequest implements Runnable {
-    private Socket socket;
+    private final Socket socket;
     private InputStream in;
     private PrintWriter out;
 
@@ -53,7 +53,7 @@ class InboundRequest implements Runnable {
         } catch (Exception e) {
             send500();
             System.err.println("Error while handling the connection --> HTTP 500");
-            System.err.println(e);
+            e.printStackTrace();
         } finally {
             try {
                 in.close();
@@ -157,22 +157,23 @@ class InboundRequest implements Runnable {
                 Files.copy(fileToSend.toPath(), socket.getOutputStream());
                 socket.getOutputStream().flush();
             } catch (IOException e) {
-                // if this happend, we unfortunatelly already send the OK header and no we should send a 500
+                // if this happens, we unfortunately already sent the OK header and no we should send a 500
                 // we accept this because it should be very unlikely to happen because we already checked the isReadable()
                 // a way to avoid this, would be to read in first the file, than send the header, and then the file content.
-                // this would use more RAM because the whole file would be temporarely safed
-                // and even then their could be a error in sending after the OK is already send.
-                // This is why we choosed this way.
+                // this would use more RAM because the whole file would be temporarily saved
+                // and even then there could be a error in sending after the OK is already sent.
+                // This is why we choose this way.
                 socket.getOutputStream().write("Something went wrong after already sending the header".getBytes());
             }
         }
     }
 
     private void HandlePost(InboundRequestHeader requestHeader) throws IOException {
+        // send the continue header, if the client asked for it
         if (requestHeader.isExpectContinue()) {
             new ReplyHeader(Status.STATUS100).SendHeader(out);
         }
-        // save the sended png file to the upload folder
+        // save the sent png file to the upload folder
         WriteToFile(requestHeader);
         
         // serve the requested file like it has been a GET request. 
@@ -181,8 +182,8 @@ class InboundRequest implements Runnable {
     }
 
     private void WriteToFile(InboundRequestHeader requestHeader) throws IOException {
-        // uses the original filename of the sendet file and saves it in the upload folder
-        // additionally the current timestamp is added because with POST their should nothing be overridden like with PUT
+        // uses the original filename of the sent file and saves it in the upload folder
+        // additionally the current timestamp is added because with POST there should nothing be overwrite like with PUT
         File fileToSave = new File(UPLOAD_DIR + System.currentTimeMillis() + "-" + requestHeader.startPNGReadingAndFilename());
         while (fileToSave.exists()){
             // really unlikely; if the file already exists use a later timestamp
@@ -193,7 +194,6 @@ class InboundRequest implements Runnable {
         while (true) {
             byte[] buffer = new byte[1024];
             int len = requestHeader.readPNG(buffer);
-            // System.out.println(buffer);
             os.write(buffer, 0, len);
             if (len != 1024)
                 break;
@@ -224,7 +224,7 @@ class InboundRequest implements Runnable {
                 fileLocationHeader = fileName;
             } else if (f.exists() && f.isDirectory()) {
                 // file exists but it is directory, a index.html will be created in this
-                // directory with the content of the sendet file. The new location will be seen
+                // directory with the content of the sent file. The new location will be seen
                 // in the content-location header field
                 f = new File(f, "index.html");
                 if (f.exists()) {
@@ -251,8 +251,8 @@ class InboundRequest implements Runnable {
             }
             os.close();
 
-            // send the header. The reason why it is sendet only now is that if something
-            // worked wrong during saving the file, we can still send the 500
+            // send the header. The reason why sending the header is delayed until now is that if something
+            // went wrong during the saving of the file, we can still send the 500
             new ReplyHeader(status, fileLocationHeader).SendHeader(out);
         } else {
             send500();

@@ -12,8 +12,8 @@ class InboundRequestHeader {
     private int contentLength;
     private boolean expectContinue = false;
     private String requestedResource;
-    public String header;
-    private InputStream inpStr;
+    private String header;
+    private final InputStream inpStr;
     // boundary for the post body
     private String boundary;
 
@@ -29,7 +29,7 @@ class InboundRequestHeader {
                 break;
             }
         }
-        // trim is against the problems you have with \r and \n on different os's
+        // trim removes the problems you have with \r and \n on different os's
         header = header.trim();
         ParseHeader();
     }
@@ -40,6 +40,7 @@ class InboundRequestHeader {
         for (c = inputStream.read(); c != '\n' && c != -1; c = inputStream.read()) {
             byteArrayOutputStream.write(c);
         }
+        //-i indicates that there is no more left to be read
         if (c == -1 && byteArrayOutputStream.size() == 0) {
             return null;
         }
@@ -48,21 +49,21 @@ class InboundRequestHeader {
     }
 
 
-    // reads to input stream to the position where the picture starts and extracts the filename
+    // reads the input stream to the position where the picture starts and extracts the filename
     public String startPNGReadingAndFilename() throws IOException {
-        String pictureHeader = "";
+        StringBuilder pictureHeader = new StringBuilder();
         while (true) {
             String line = readLine(inpStr);
-            pictureHeader += line + "\n";
+            pictureHeader.append(line).append("\n");
 
             if (line == null || line.equals("") || line.equals("\r") || line.equals("\n") || line.equals("\n\r")) {
                 break;
             }
         }
-        pictureHeader = pictureHeader.trim();
+        pictureHeader = new StringBuilder(pictureHeader.toString().trim());
 
         Pattern p = Pattern.compile("filename=\"([^\"]*)\"");
-        Matcher m = p.matcher(pictureHeader);
+        Matcher m = p.matcher(pictureHeader.toString());
         m.find();
         return(m.group(1));
         
@@ -76,7 +77,7 @@ class InboundRequestHeader {
             if (i + usedBound.length() < buffer.length - 1) {
                 byte[] nextChars = Arrays.copyOfRange(buffer, i, i + usedBound.length());
                 if (new String(nextChars).equals(usedBound)) {
-                    // ende
+                    // end
                     len = i;
                     break;
                 }
@@ -86,8 +87,7 @@ class InboundRequestHeader {
     }
 
     public int readPNGPut(byte[] buffer) throws IOException {
-        int len = inpStr.read(buffer);
-        return len;
+        return inpStr.read(buffer);
     }
 
 
